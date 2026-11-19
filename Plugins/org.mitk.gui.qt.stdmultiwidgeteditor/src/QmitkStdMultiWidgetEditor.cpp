@@ -28,6 +28,7 @@ found in the LICENSE file.
 
 // mitk qt widgets module
 #include <QmitkInteractionSchemeToolBar.h>
+#include <QmitkColorBarWidget.h>
 #include <QmitkLevelWindowWidget.h>
 #include <QmitkRenderWindowWidget.h>
 #include <QmitkStdMultiWidget.h>
@@ -44,11 +45,13 @@ struct QmitkStdMultiWidgetEditor::Impl final
 
   QmitkInteractionSchemeToolBar* m_InteractionSchemeToolBar;
   QmitkLevelWindowWidget* m_LevelWindowWidget;
+  QmitkColorBarWidget* m_ColorBarWidget;
 };
 
 QmitkStdMultiWidgetEditor::Impl::Impl()
   : m_InteractionSchemeToolBar(nullptr)
   , m_LevelWindowWidget(nullptr)
+  , m_ColorBarWidget(nullptr)
 {
   // nothing here
 }
@@ -245,6 +248,14 @@ void QmitkStdMultiWidgetEditor::CreateQtPartControl(QWidget* parent)
     m_Impl->m_LevelWindowWidget->setMaximumWidth(50);
   }
 
+  // color bar sits between the render windows and the level window slider
+  if (nullptr == m_Impl->m_ColorBarWidget)
+  {
+    m_Impl->m_ColorBarWidget = new QmitkColorBarWidget(parent);
+    m_Impl->m_ColorBarWidget->SetLevelWindowManager(m_Impl->m_LevelWindowWidget->GetManager());
+  }
+
+  layout->addWidget(m_Impl->m_ColorBarWidget);
   layout->addWidget(m_Impl->m_LevelWindowWidget);
 
   GetSite()->GetPage()->AddPartListener(this);

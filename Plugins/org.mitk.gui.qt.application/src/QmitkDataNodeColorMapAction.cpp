@@ -19,6 +19,8 @@ found in the LICENSE file.
 #include <mitkRenderingManager.h>
 #include <mitkRenderingModeProperty.h>
 
+#include <QmitkColorBarWidget.h>
+
 // mitk gui common plugin
 #include <mitkDataNodeSelection.h>
 
@@ -87,6 +89,24 @@ void QmitkDataNodeColorMapAction::OnMenuAboutShow()
     }
 
     connect(lutAction, &QAction::triggered, this, &QmitkDataNodeColorMapAction::OnActionTriggered);
+  }
+
+  menu()->addSeparator();
+  auto* colorbarAction = menu()->addAction(tr("Show Colorbar"));
+  colorbarAction->setCheckable(true);
+
+  bool colorbarShown = false;
+  dataNode->GetBoolProperty(QmitkColorBarWidget::PropertyName, colorbarShown);
+  colorbarAction->setChecked(colorbarShown);
+  connect(colorbarAction, &QAction::triggered, this, &QmitkDataNodeColorMapAction::OnColorbarTriggered);
+}
+
+void QmitkDataNodeColorMapAction::OnColorbarTriggered(bool checked)
+{
+  for (auto& dataNode : this->GetSelectedNodes())
+  {
+    if (dataNode.IsNotNull())
+      dataNode->SetBoolProperty(QmitkColorBarWidget::PropertyName, checked);
   }
 }
 

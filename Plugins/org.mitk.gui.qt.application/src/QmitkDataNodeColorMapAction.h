@@ -36,6 +36,7 @@ private Q_SLOTS:
 
   void OnMenuAboutShow();
   void OnActionTriggered(bool);
+  void OnColorbarTriggered(bool checked);
 
 protected:
 

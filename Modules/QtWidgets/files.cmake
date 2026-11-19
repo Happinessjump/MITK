@@ -43,6 +43,7 @@ set(CPP_FILES
   QmitkNodeSelectionListItemWidget.cpp
   QmitkNodeSelectionPreferenceHelper.cpp
   QmitkNodeDescriptor.cpp
+  QmitkColorBarWidget.cpp
   QmitkColoredNodeDescriptor.cpp
   QmitkNodeDescriptorManager.cpp
   QmitkProgressBar.cpp
