@@ -81,6 +81,25 @@ namespace mitk
     /** \brief Return the name string for the CEST DICOM without meta file MIME type. */
     static std::string CEST_DICOM_WITHOUT_META_FILE_NAME();
 
+    /** Mime type for CEST series stored as Enhanced MR DICOM files.
+    *
+    * Accepts Enhanced MR files whose image comment contains the saturation offset
+    * or that have a LIST.txt in the same directory.
+    */
+    class MitkCESTEnhancedMRMimeType : public IOMimeTypes::BaseDicomMimeType
+    {
+    public:
+      MitkCESTEnhancedMRMimeType();
+      bool AppliesTo(const std::string& path) const override;
+      MitkCESTEnhancedMRMimeType* Clone() const override;
+    };
+
+    /** \brief Return an instance of the CEST Enhanced MR MIME type. */
+    static MitkCESTEnhancedMRMimeType CEST_ENHANCED_MR_MIMETYPE();
+
+    /** \brief Return the name string for the CEST Enhanced MR MIME type. */
+    static std::string CEST_ENHANCED_MR_MIMETYPE_NAME();
+
     /** \brief Return all registered CEST MIME types. Caller takes ownership of the returned pointers. */
     static std::vector<CustomMimeType *> Get();
 

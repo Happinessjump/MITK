@@ -21,6 +21,7 @@ found in the LICENSE file.
 #include <QmitkPlotWidget.h>
 #include <QmitkImageStatisticsCalculationRunnable.h>
 
+#include <mitkLabelSetImage.h>
 #include <mitkPlanarFigure.h>
 #include <mitkPointSet.h>
 #include <mitkIRenderWindowPartListener.h>
@@ -120,6 +121,7 @@ class QmitkCESTStatisticsView : public QmitkAbstractView, public mitk::IRenderWi
     mitk::Image::Pointer m_ZImage;
     mitk::Image::Pointer m_MaskImage;
     mitk::PlanarFigure::Pointer m_MaskPlanarFigure;
+    mitk::MultiLabelSegmentation::Pointer m_MaskSegmentation;
     mitk::PointSet::Pointer m_PointSet;
     mitk::PointSet::Pointer m_CrosshairPointSet;
 

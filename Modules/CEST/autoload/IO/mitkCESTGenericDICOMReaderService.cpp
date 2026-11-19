@@ -12,6 +12,8 @@ found in the LICENSE file.
 
 #include <mitkCESTGenericDICOMReaderService.h>
 
+#include "mitkCESTEnhancedMRHelper.h"
+
 #include <mitkIOMimeTypes.h>
 #include <mitkExtractCESTOffset.h>
 #include <mitkCustomTagParser.h>
@@ -23,6 +25,9 @@ found in the LICENSE file.
 #include <mitkCESTImageNormalizationFilter.h>
 
 #include <itksys/SystemTools.hxx>
+
+#include <fstream>
+#include <optional>
 
 #include <usGetModuleContext.h>
 #include <usModuleContext.h>
@@ -121,7 +126,7 @@ namespace mitk
       {
         const auto& value = root[key];
 
-        if (value.is_number_float())
+        if (value.is_number())
         {
           options[key] = value.get<double>();
         }
@@ -140,7 +145,8 @@ namespace mitk
       {
         try
         {
-          root = json::parse(file);
+          std::ifstream stream(file);
+          root = json::parse(stream);
         }
         catch (const json::exception& e)
         {
@@ -344,13 +350,26 @@ namespace mitk
         item->GetPropertyList()->SetStringProperty(option.first.c_str(), option.second.ToString().c_str());
       }
 
-      auto freqProp = item->GetProperty(mitk::DICOMTagPathToPropertyName(DICOM_IMAGING_FREQUENCY_PATH()).c_str());
+      std::optional<double> frequencyMHz;
 
-      if (freqProp.IsNull())
+      const auto freqProp = item->GetProperty(mitk::DICOMTagPathToPropertyName(DICOM_IMAGING_FREQUENCY_PATH()).c_str());
+      if (freqProp.IsNotNull())
       {
-        mitkThrow() << "Loaded image in invalid state. Does not contain the DICOM Imaging Frequency tag.";
+        frequencyMHz = mitk::ConvertDICOMStrToValue<double>(freqProp->GetValueAsString());
       }
-      SetCESTFrequencyMHz(item, mitk::ConvertDICOMStrToValue<double>(freqProp->GetValueAsString()));
+      else
+      {
+        frequencyMHz = ReadTransmitFrequencyMHz(this->GetInputLocation());
+      }
+
+      if (frequencyMHz.has_value())
+      {
+        SetCESTFrequencyMHz(item, frequencyMHz.value());
+      }
+      else
+      {
+        MITK_WARN << "Neither the DICOM Imaging Frequency nor the Transmit Frequency was found. The CEST frequency property is not set.";
+      }
 
       auto image = dynamic_cast<mitk::Image*>(item.GetPointer());
 

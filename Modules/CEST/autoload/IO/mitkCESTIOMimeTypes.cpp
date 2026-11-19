@@ -11,6 +11,8 @@ found in the LICENSE file.
 ============================================================================*/
 
 #include <mitkCESTIOMimeTypes.h>
+#include <mitkCESTEnhancedMRHelper.h>
+#include <mitkCESTSidecarHelper.h>
 #include <mitkIOMimeTypes.h>
 #include <mitkCustomTagParser.h>
 #include <mitkDICOMDCMTKTagScanner.h>
@@ -30,6 +32,7 @@ namespace mitk
 
     // order matters here (descending rank for mime types)
 
+    mimeTypes.push_back(CEST_ENHANCED_MR_MIMETYPE().Clone());
     mimeTypes.push_back(CEST_DICOM_WITH_META_FILE_MIMETYPE().Clone());
     mimeTypes.push_back(CEST_DICOM_MIMETYPE().Clone());
     mimeTypes.push_back(CEST_DICOM_WITHOUT_META_FILE_MIMETYPE().Clone());
@@ -168,6 +171,54 @@ namespace mitk
   {
     // create a unique and sensible name for this mime type
     static std::string name = IOMimeTypes::DEFAULT_BASE_NAME() + ".image.dicom.cest.generic.meta";
+    return name;
+  }
+
+  MitkCESTIOMimeTypes::MitkCESTEnhancedMRMimeType::MitkCESTEnhancedMRMimeType() : IOMimeTypes::BaseDicomMimeType(CEST_ENHANCED_MR_MIMETYPE_NAME())
+  {
+    this->SetCategory(IOMimeTypes::CATEGORY_IMAGES());
+    this->SetComment("CEST Enhanced MR DICOM");
+  }
+
+  bool MitkCESTIOMimeTypes::MitkCESTEnhancedMRMimeType::AppliesTo(const std::string& path) const
+  {
+    const bool canRead(IOMimeTypes::BaseDicomMimeType::AppliesTo(path));
+
+    // AppliesTo is also called for writing, where the file does not exist yet.
+    if (!canRead || !itksys::SystemTools::FileExists(path.c_str()))
+    {
+      return canRead;
+    }
+
+    const auto info = ReadCESTEnhancedMRFileInfo(path);
+    if (!info.isEnhancedMR)
+    {
+      return false;
+    }
+
+    if (ParseCESTOffsetPpm(info.imageComment).has_value())
+    {
+      return true;
+    }
+
+    return itksys::SystemTools::FileExists(itksys::SystemTools::GetFilenamePath(path) + "/LIST.txt") ||
+           ReadCESTSidecar(path, 0).has_value();
+  }
+
+  MitkCESTIOMimeTypes::MitkCESTEnhancedMRMimeType* MitkCESTIOMimeTypes::MitkCESTEnhancedMRMimeType::Clone() const
+  {
+    return new MitkCESTEnhancedMRMimeType(*this);
+  }
+
+  MitkCESTIOMimeTypes::MitkCESTEnhancedMRMimeType MitkCESTIOMimeTypes::CEST_ENHANCED_MR_MIMETYPE()
+  {
+    return MitkCESTEnhancedMRMimeType();
+  }
+
+  std::string MitkCESTIOMimeTypes::CEST_ENHANCED_MR_MIMETYPE_NAME()
+  {
+    // create a unique and sensible name for this mime type
+    static std::string name = IOMimeTypes::DEFAULT_BASE_NAME() + ".image.dicom.cest.enhancedmr";
     return name;
   }
 

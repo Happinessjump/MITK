@@ -24,6 +24,7 @@ found in the LICENSE file.
 #include "QmitkCESTStatisticsView.h"
 
 // Qt
+#include <QCoreApplication>
 #include <QMessageBox>
 #include <QThreadPool>
 
@@ -110,6 +111,8 @@ QmitkCESTStatisticsView::QmitkCESTStatisticsView(QObject * /*parent*/, const cha
   : m_Controls(std::make_unique<Ui::QmitkCESTStatisticsViewControls>())
 {
   this->m_CalculatorJob = new QmitkImageStatisticsCalculationRunnable();
+  // The job is reused for every calculation and deleted in the destructor.
+  this->m_CalculatorJob->setAutoDelete(false);
 
   m_currentSelectedPosition.Fill(0.0);
   m_currentSelectedTimePoint = 0.;
@@ -118,9 +121,11 @@ QmitkCESTStatisticsView::QmitkCESTStatisticsView(QObject * /*parent*/, const cha
 
 QmitkCESTStatisticsView::~QmitkCESTStatisticsView()
 {
-  while (this->m_CalculatorJob->IsRunning()) // wait until thread has finished
+  // The job hands over its results to the GUI thread and waits for it, so events have to be processed.
+  while (this->m_CalculatorJob->IsRunning())
   {
-    itksys::SystemTools::Delay(100);
+    QCoreApplication::processEvents();
+    itksys::SystemTools::Delay(10);
   }
   delete this->m_CalculatorJob;
 }
@@ -136,11 +141,18 @@ void QmitkCESTStatisticsView::CreateQtPartControl(QWidget *parent)
   m_Controls->setupUi(parent);
   connect(
     m_Controls->threeDimToFourDimPushButton, SIGNAL(clicked()), this, SLOT(OnThreeDimToFourDimPushButtonClicked()));
-  connect((QObject *)this->m_CalculatorJob,
-          SIGNAL(ResultsAvailable()),
+  connect(this->m_CalculatorJob,
+          &QmitkDataGenerationJobBase::ResultsAvailable,
           this,
-          SLOT(OnThreadedStatisticsCalculationEnds()),
-          Qt::QueuedConnection);
+          [this](QmitkDataGenerationJobBase::ResultMapType, const QmitkDataGenerationJobBase *) {
+            this->OnThreadedStatisticsCalculationEnds();
+          },
+          Qt::BlockingQueuedConnection);
+  connect(this->m_CalculatorJob,
+          &QmitkDataGenerationJobBase::Error,
+          this,
+          [this](QString, const QmitkDataGenerationJobBase *) { this->OnThreadedStatisticsCalculationEnds(); },
+          Qt::BlockingQueuedConnection);
   connect((QObject *)(this->m_Controls->fixedRangeCheckBox),
           SIGNAL(toggled(bool)),
           (QObject *)this,
@@ -222,6 +234,12 @@ void QmitkCESTStatisticsView::OnSelectionChanged(berry::IWorkbenchPart::Pointer 
       m_Controls->widget_statistics->SetMaskNodes({node.GetPointer()});
     }
 
+    if (dynamic_cast<mitk::MultiLabelSegmentation *>(node->GetData()) != nullptr)
+    {
+      m_MaskSegmentation = dynamic_cast<mitk::MultiLabelSegmentation *>(node->GetData());
+      m_Controls->widget_statistics->SetMaskNodes({node.GetPointer()});
+    }
+
     if (dynamic_cast<mitk::PointSet *>(node->GetData()) != nullptr)
     {
       m_PointSet = dynamic_cast<mitk::PointSet *>(node->GetData());
@@ -293,10 +311,18 @@ void QmitkCESTStatisticsView::OnSelectionChanged(berry::IWorkbenchPart::Pointer 
 
   if (m_PointSet.IsNull())
   {
+    if (this->m_CalculatorJob->IsRunning())
+    {
+      m_Controls->labelWarning->setText("<font color='red'>A calculation is still running. Please select again afterwards.</font>");
+      m_Controls->labelWarning->show();
+      return;
+    }
+
     // initialize thread and trigger it
     this->m_CalculatorJob->SetIgnoreZeroValueVoxel(false);
     const mitk::BaseData* maskData = m_MaskImage.GetPointer();
     if (m_MaskImage.IsNull()) maskData = m_MaskPlanarFigure.GetPointer();
+    if (maskData == nullptr) maskData = m_MaskSegmentation.GetPointer();
     this->m_CalculatorJob->Initialize(m_ZImage.GetPointer(), maskData);
     std::stringstream message;
     message << "<font color='red'>Calculating statistics...</font>";
@@ -331,11 +357,6 @@ void QmitkCESTStatisticsView::OnSelectionChanged(berry::IWorkbenchPart::Pointer 
       message << "<font color='red'>Error! Unequal Dimensions of Image and Segmentation. No recompute possible </font>";
       m_Controls->labelWarning->setText(message.str().c_str());
       m_Controls->labelWarning->show();
-    }
-
-    while (this->m_CalculatorJob->IsRunning()) // wait until thread has finished
-    {
-      itksys::SystemTools::Delay(100);
     }
   }
 
@@ -376,30 +397,41 @@ void QmitkCESTStatisticsView::OnThreadedStatisticsCalculationEnds()
 
     QmitkPlotWidget::DataVector::size_type numberOfSpectra = this->m_zSpectrum.size();
 
-    QmitkPlotWidget::DataVector means(numberOfSpectra);
-    QmitkPlotWidget::DataVector stdevs(numberOfSpectra);
+    // A multi label segmentation yields one spectrum per label.
+    const auto labelValues = statistics->GetExistingLabelValues();
+    const bool singleSpectrum = labelValues.size() == 1;
 
-    for (unsigned int index = 0; index < numberOfSpectra; ++index)
+    for (std::size_t labelIndex = 0; labelIndex < labelValues.size(); ++labelIndex)
     {
-      means[index] =
-        statistics->GetStatistics(1,index).GetValueConverted<mitk::ImageStatisticsContainer::RealType>(
+      const auto labelValue = labelValues[labelIndex];
+
+      QmitkPlotWidget::DataVector means(numberOfSpectra);
+      QmitkPlotWidget::DataVector stdevs(numberOfSpectra);
+
+      for (unsigned int index = 0; index < numberOfSpectra; ++index)
+      {
+        const auto& statisticsObject = statistics->GetStatistics(labelValue, index);
+        means[index] = statisticsObject.GetValueConverted<mitk::ImageStatisticsContainer::RealType>(
           mitk::ImageStatisticsConstants::MEAN());
-      stdevs[index] =
-        statistics->GetStatistics(1,index).GetValueConverted<mitk::ImageStatisticsContainer::RealType>(
+        stdevs[index] = statisticsObject.GetValueConverted<mitk::ImageStatisticsContainer::RealType>(
           mitk::ImageStatisticsConstants::STANDARDDEVIATION());
+      }
+
+      QmitkPlotWidget::DataVector xValues = this->m_zSpectrum;
+
+      RemoveMZeros(xValues, means, stdevs);
+      ::SortVectors(xValues, std::less<qreal>(), xValues, means, stdevs);
+
+      const QColor color = singleSpectrum ? QColor(Qt::blue) : QColor(static_cast<Qt::GlobalColor>(labelIndex % 17 + 4));
+      const QString curveName = singleSpectrum ? QStringLiteral("Spectrum") : QStringLiteral("Label %1").arg(labelValue);
+
+      unsigned int curveId = this->m_Controls->m_DataViewWidget->InsertCurve(curveName.toStdString().c_str());
+      this->m_Controls->m_DataViewWidget->SetCurveData(curveId, xValues, means, stdevs, stdevs);
+      this->m_Controls->m_DataViewWidget->SetErrorPen(curveId, QPen(color));
+      QwtSymbol *symbol = new QwtSymbol(QwtSymbol::Rect, color, color, QSize(8, 8));
+      this->m_Controls->m_DataViewWidget->SetCurveSymbol(curveId, symbol);
+      this->m_Controls->m_DataViewWidget->SetLegendAttribute(curveId, QwtPlotCurve::LegendShowSymbol);
     }
-
-    QmitkPlotWidget::DataVector xValues = this->m_zSpectrum;
-
-    RemoveMZeros(xValues, means, stdevs);
-    ::SortVectors(xValues, std::less<qreal>(), xValues, means, stdevs);
-
-    unsigned int curveId = this->m_Controls->m_DataViewWidget->InsertCurve("Spectrum");
-    this->m_Controls->m_DataViewWidget->SetCurveData(curveId, xValues, means, stdevs, stdevs);
-    this->m_Controls->m_DataViewWidget->SetErrorPen(curveId, QPen(Qt::blue));
-    QwtSymbol *blueSymbol = new QwtSymbol(QwtSymbol::Rect, QColor(Qt::blue), QColor(Qt::blue), QSize(8, 8));
-    this->m_Controls->m_DataViewWidget->SetCurveSymbol(curveId, blueSymbol);
-    this->m_Controls->m_DataViewWidget->SetLegendAttribute(curveId, QwtPlotCurve::LegendShowSymbol);
 
     QwtLegend *legend = new QwtLegend();
     legend->setFrameShape(QFrame::Box);
@@ -729,14 +761,17 @@ bool QmitkCESTStatisticsView::DataSanityCheck()
 
   // if we have neither a mask image, a point set nor a mask planar figure, we can not do statistics
   // statistics on the whole image would not make sense
-  if (m_MaskImage.IsNull() && m_MaskPlanarFigure.IsNull() && m_PointSet.IsNull() && m_CrosshairPointSet->IsEmpty())
+  if (m_MaskImage.IsNull() && m_MaskPlanarFigure.IsNull() && m_MaskSegmentation.IsNull() && m_PointSet.IsNull() &&
+      m_CrosshairPointSet->IsEmpty())
   {
     return false;
   }
 
-  // if we have a mask image and a mask planar figure, we can not do statistics
+  // if we have more than one mask, we can not do statistics
   // we do not know which one to use
-  if (m_MaskImage.IsNotNull() && m_MaskPlanarFigure.IsNotNull())
+  const int numberOfMasks = (m_MaskImage.IsNotNull() ? 1 : 0) + (m_MaskPlanarFigure.IsNotNull() ? 1 : 0) +
+                            (m_MaskSegmentation.IsNotNull() ? 1 : 0);
+  if (numberOfMasks > 1)
   {
     return false;
   }
@@ -751,6 +786,7 @@ void QmitkCESTStatisticsView::Clear()
   this->m_ZImage = nullptr;
   this->m_MaskImage = nullptr;
   this->m_MaskPlanarFigure = nullptr;
+  this->m_MaskSegmentation = nullptr;
   this->m_PointSet = nullptr;
   this->m_Controls->m_DataViewWidget->Clear();
   this->m_Controls->m_StatisticsGroupBox->setEnabled(false);

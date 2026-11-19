@@ -43,6 +43,8 @@ namespace mitk
     std::unique_ptr<IFileReader> m_CESTDICOMReader;
     std::unique_ptr<IFileReader> m_CESTDICOMManualWithMetaFileReader;
     std::unique_ptr<IFileReader> m_CESTDICOMManualWithOutMetaFileReader;
+    std::unique_ptr<IFileReader> m_CESTEnhancedMRReader;
+    std::unique_ptr<IFileReader> m_CESTNiftiReader;
     std::vector<mitk::CustomMimeType *> m_MimeTypes;
 
     // Module context
