@@ -25,6 +25,7 @@ class mitkLookupTableTestSuite : public mitk::TestFixture
   CPPUNIT_TEST_SUITE(mitkLookupTableTestSuite);
   MITK_TEST(TestCreateLookupTable);
   MITK_TEST(TestSetVtkLookupTable);
+  MITK_TEST(TestSetIDLRainbow013Type);
   MITK_TEST(TestSetOpacity);
   MITK_TEST(TestCreateColorTransferFunction);
   MITK_TEST(TestCreateOpacityTransferFunction);
@@ -62,6 +63,22 @@ public:
     CPPUNIT_ASSERT_MESSAGE("Input and output table are not equal", lut == lut2);
 
     lut->Delete();
+  }
+
+  void TestSetIDLRainbow013Type()
+  {
+    mitk::LookupTable::Pointer lut = mitk::LookupTable::New();
+    lut->SetType("IDL Rainbow 013");
+
+    CPPUNIT_ASSERT_EQUAL(mitk::LookupTable::IDL_RAINBOW_013, lut->GetActiveType());
+    CPPUNIT_ASSERT_EQUAL(std::string("IDL Rainbow 013"), lut->GetActiveTypeAsString());
+
+    double rgba[4];
+    lut->GetVtkLookupTable()->GetTableValue(0, rgba);
+    CPPUNIT_ASSERT_EQUAL(0.0, rgba[0] + rgba[1] + rgba[2]);
+    lut->GetVtkLookupTable()->GetTableValue(255, rgba);
+    CPPUNIT_ASSERT_EQUAL(1.0, rgba[0]);
+    CPPUNIT_ASSERT_EQUAL(0.0, rgba[1] + rgba[2]);
   }
 
   void TestSetOpacity()

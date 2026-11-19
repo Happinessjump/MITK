@@ -17,6 +17,7 @@ found in the LICENSE file.
 #include <vtkPiecewiseFunction.h>
 
 #include <Colortables/HotIron.h>
+#include <Colortables/IDLRainbow013.h>
 #include <Colortables/Jet.h>
 #include <Colortables/Inferno.h>
 #include <Colortables/Viridis.h>
@@ -103,7 +104,8 @@ std::vector<std::string> mitk::LookupTable::typenameList = {
   "PET Color",
   "PET 20",
   "PET Black/White",
-  "Turbo"
+  "Turbo",
+  "IDL Rainbow 013"
 };
 
 mitk::LookupTable::LookupTable()
@@ -193,6 +195,9 @@ void mitk::LookupTable::SetType(const mitk::LookupTable::LookupTableType type)
       break;
     case (mitk::LookupTable::TURBO):
       this->BuildTurboLookupTable();
+      break;
+    case (mitk::LookupTable::IDL_RAINBOW_013):
+      this->BuildIDLRainbow013LookupTable();
       break;
     case (mitk::LookupTable::LEGACY_RAINBOW_COLOR):
       this->BuildLegacyRainbowColorLookupTable();
@@ -594,6 +599,20 @@ void mitk::LookupTable::BuildTurboLookupTable()
 
   for (int i = 0; i < 256; ++i)
     lut->SetTableValue(i, (double)Turbo[i][0] / 255.0, (double)Turbo[i][1] / 255.0, (double)Turbo[i][2] / 255.0, 1.0);
+
+  m_LookupTable = lut;
+  this->Modified();
+}
+
+void mitk::LookupTable::BuildIDLRainbow013LookupTable()
+{
+  auto lut = vtkSmartPointer<vtkLookupTable>::New();
+  lut->SetNumberOfTableValues(256);
+  lut->SetTableRange((m_Level - m_Window / 2.0), (m_Level + m_Window / 2.0));
+  lut->Build();
+
+  for (int i = 0; i < 256; ++i)
+    lut->SetTableValue(i, (double)IDLRainbow013[i][0] / 255.0, (double)IDLRainbow013[i][1] / 255.0, (double)IDLRainbow013[i][2] / 255.0, 1.0);
 
   m_LookupTable = lut;
   this->Modified();

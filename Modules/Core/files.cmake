@@ -1,5 +1,6 @@
 set(H_FILES
   Colortables/HotIron.h
+  Colortables/IDLRainbow013.h
   Colortables/Inferno.h
   Colortables/Jet.h
   Colortables/Magma.h

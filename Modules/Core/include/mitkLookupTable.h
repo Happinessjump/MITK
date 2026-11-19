@@ -241,6 +241,7 @@ namespace mitk
      * \li PET_20 A LookupTable for PET_20 color rendering.
      * \li PET_BLACK_WHITE A LookupTable for PET white to black color rendering.
      * \li TURBO An improved rainbow LookupTable for visualization.
+     * \li IDL_RAINBOW_013 The IDL Rainbow (no. 013) LookupTable, recommended for APTw CEST images.
      *
      * The different LookupTableTypes can be applied in the MitkWorkbench via right-clicking
      * on an image and choosing a color map.
@@ -262,7 +263,8 @@ namespace mitk
       PET_COLOR,
       PET_20,
       PET_BLACK_WHITE,
-      TURBO
+      TURBO,
+      IDL_RAINBOW_013
     };
 
     /** \brief List of all predefined lookup table type names. */
@@ -322,6 +324,7 @@ namespace mitk
     virtual void BuildPETBWLookupTable();
     virtual void BuildMultiLabelLookupTable();
     virtual void BuildTurboLookupTable();
+    virtual void BuildIDLRainbow013LookupTable();
 
     vtkSmartPointer<vtkLookupTable> m_LookupTable;
 
