@@ -77,6 +77,39 @@ public:
 };
 
 /**
+ * \brief A line edit with a browse button for string options that hold a file path.
+ *
+ * Created for options whose last key segment is "file". The label is the segment
+ * before it. An optional string option with the same key and the additional
+ * segment "filter" provides the file dialog filter, e.g. "Text files (*.txt)".
+ *
+ * \sa QmitkAnyAdapter
+ */
+class QmitkAnyFilePathWidget : public QWidget, public QmitkAnyAdapter
+{
+  Q_OBJECT
+
+public:
+  /**
+   * \brief Constructs a file path option widget.
+   * \param[in] name   The option name.
+   * \param[in] any    The initial path (must be convertible to std::string).
+   * \param[in] filter The file dialog filter; empty for all files.
+   * \param[in] parent Optional parent widget.
+   */
+  QmitkAnyFilePathWidget(const std::string &name, const us::Any &any, const QString &filter, QWidget *parent = nullptr);
+
+  /** \brief Returns the current path as a us::Any wrapping a std::string. */
+  us::Any GetAny() const override;
+
+private:
+  void Browse();
+
+  QLineEdit *m_PathEdit;
+  QString m_Filter;
+};
+
+/**
  * \brief A QComboBox-based adapter for vector-of-string options.
  * \sa QmitkAnyAdapter
  */

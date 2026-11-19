@@ -30,7 +30,7 @@ found in the LICENSE file.
 
 namespace
 {
-  const std::string DESCRIPTION = "CEST NIfTI Reader";
+  const std::string DESCRIPTION = "NIfTI CEST Import";
   const std::string OPTION_NAME_NORMALIZE = "Normalize data";
   const std::string OPTION_VALUE_AUTOMATIC = "Automatic";
   const std::string OPTION_VALUE_NO = "No";
@@ -120,6 +120,8 @@ namespace mitk
   {
     Options options;
     options[OPTION_NAME_NORMALIZE] = std::vector<std::string>{ OPTION_VALUE_AUTOMATIC, OPTION_VALUE_NO };
+    options[CESTProtocolFileOptionName()] = std::string();
+    options[CESTProtocolFileOptionName() + ".filter"] = CESTProtocolFileOptionFilter();
     this->SetDefaultOptions(options);
 
     // Must outrank the regular NIfTI reader, which is registered for the same MIME type.
@@ -137,7 +139,13 @@ namespace mitk
     const std::string file = this->GetInputLocation();
     const std::size_t timeSteps = ReadTimeStepCount(file);
 
-    return timeSteps > 1 && ReadCESTSidecar(file, timeSteps).has_value() ? Supported : Unsupported;
+    if (timeSteps <= 1)
+    {
+      return Unsupported;
+    }
+
+    // Without protocol file the regular reader stays the default, this reader can still be chosen.
+    return ReadCESTSidecar(file, timeSteps).has_value() ? Supported : PartiallySupported;
   }
 
   std::vector<itk::SmartPointer<BaseData>> CESTNiftiReaderService::DoRead()
@@ -145,25 +153,32 @@ namespace mitk
     const std::string file = this->GetInputLocation();
 
     const std::size_t timeSteps = ReadTimeStepCount(file);
-    const auto sidecar = ReadCESTSidecar(file, timeSteps);
-    if (!sidecar.has_value())
-    {
-      mitkThrow() << "Cannot load CEST file. No CEST protocol file with " << timeSteps << " offsets found next to " << file;
-    }
+    const Options options = this->GetOptions();
+    const auto protocolFileOption = options.find(CESTProtocolFileOptionName());
+    const std::string protocolFile = protocolFileOption != options.end() ? protocolFileOption->second.ToString() : std::string();
 
-    MITK_INFO << "Using " << sidecar->offsetsPpm.size() << " CEST offsets from the protocol file next to " << file;
+    const auto sidecar = ResolveCESTSidecar(file, timeSteps, protocolFile);
 
     Image::Pointer image = ReadWithRegularReader(file, timeSteps);
 
-    image->GetPropertyList()->SetStringProperty(CEST_PROPERTY_NAME_OFFSETS().c_str(), ToString(sidecar->offsetsPpm).c_str());
-    ApplyCESTSidecarParameters(image, sidecar.value());
+    if (sidecar.has_value())
+    {
+      MITK_INFO << "Using " << sidecar->offsetsPpm.size() << " CEST offsets from the protocol file";
+
+      image->GetPropertyList()->SetStringProperty(CEST_PROPERTY_NAME_OFFSETS().c_str(), ToString(sidecar->offsetsPpm).c_str());
+      ApplyCESTSidecarParameters(image, sidecar.value());
+    }
+    else
+    {
+      image->GetPropertyList()->SetStringProperty(CEST_PROPERTY_NAME_OFFSETS().c_str(), ToString(SequentialCESTOffsets(timeSteps)).c_str());
+    }
 
     std::string name;
     image->GetPropertyList()->GetStringProperty("name", name);
 
     std::vector<itk::SmartPointer<BaseData>> result;
 
-    const std::string normalization = this->GetOptions().find(OPTION_NAME_NORMALIZE)->second.ToString();
+    const std::string normalization = options.find(OPTION_NAME_NORMALIZE)->second.ToString();
 
     if (normalization != OPTION_VALUE_NO && IsNotNormalizedCESTImage(image))
     {

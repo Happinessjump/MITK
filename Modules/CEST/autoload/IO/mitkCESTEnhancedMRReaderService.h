@@ -26,7 +26,9 @@ namespace mitk
    * offset), orders the volumes by instance number and stacks them into one 4D image.
    *
    * The offsets are taken from the image comment of each file or, as fallback,
-   * from a LIST.txt next to the files.
+   * from a LIST.txt next to the files, from a protocol file (.ini, .log, .seq) chosen
+   * in the reader options or found next to the files. Without any of these the
+   * offsets are numbered 1 to N in the order of the files and a warning is logged.
    */
   class CESTEnhancedMRReaderService : public AbstractFileReader
   {

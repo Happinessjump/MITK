@@ -13,6 +13,7 @@ found in the LICENSE file.
 #include "mitkCESTSidecarHelper.h"
 
 #include <mitkCESTPropertyHelper.h>
+#include <mitkException.h>
 #include <mitkImage.h>
 #include <mitkLog.h>
 
@@ -241,6 +242,56 @@ namespace
     return info;
   }
 
+  /** Pulseq sequence file: only the [DEFINITIONS] section is read, the blocks and shapes can be large. */
+  std::optional<mitk::CESTSidecarInfo> ParseSeq(std::istream& stream)
+  {
+    mitk::CESTSidecarInfo info;
+    bool inDefinitions = false;
+
+    std::string line;
+    while (std::getline(stream, line))
+    {
+      line = Trim(line);
+      if (line.empty() || line.front() == '#')
+      {
+        continue;
+      }
+
+      if (line.front() == '[')
+      {
+        if (inDefinitions)
+        {
+          break;
+        }
+        inDefinitions = itksys::SystemTools::LowerCase(line) == "[definitions]";
+        continue;
+      }
+
+      if (!inDefinitions)
+      {
+        continue;
+      }
+
+      const auto tokens = SplitWhitespace(line);
+      if (tokens.size() > 1 && IsKey(tokens.front(), "offsets_ppm"))
+      {
+        for (std::size_t i = 1; i < tokens.size(); ++i)
+        {
+          if (const auto ppm = ToDouble(tokens[i]); ppm.has_value())
+          {
+            info.offsetsPpm.push_back(ppm.value());
+          }
+        }
+      }
+    }
+
+    if (info.offsetsPpm.empty())
+    {
+      return std::nullopt;
+    }
+    return info;
+  }
+
   struct Candidate
   {
     std::string fileName;
@@ -284,6 +335,23 @@ namespace
 
 namespace mitk
 {
+  std::optional<CESTSidecarInfo> ReadCESTSidecarFile(const std::string& file)
+  {
+    const std::string extension = itksys::SystemTools::LowerCase(itksys::SystemTools::GetFilenameLastExtension(file));
+
+    std::ifstream stream(file);
+    if (!stream)
+    {
+      return std::nullopt;
+    }
+
+    if (extension == ".ini")
+    {
+      return ParseIni(stream);
+    }
+    return extension == ".seq" ? ParseSeq(stream) : ParseLog(stream);
+  }
+
   std::optional<CESTSidecarInfo> ReadCESTSidecar(const std::string& imageFile, std::size_t timeStepCount)
   {
     const std::string directory = itksys::SystemTools::GetFilenamePath(imageFile);
@@ -303,18 +371,12 @@ namespace mitk
       const std::string extension = itksys::SystemTools::LowerCase(itksys::SystemTools::GetFilenameLastExtension(name));
       const bool isIni = extension == ".ini";
 
-      if (!isIni && extension != ".log")
+      if (!isIni && extension != ".log" && extension != ".seq")
       {
         continue;
       }
 
-      std::ifstream stream(directory + "/" + name);
-      if (!stream)
-      {
-        continue;
-      }
-
-      auto info = isIni ? ParseIni(stream) : ParseLog(stream);
+      auto info = ReadCESTSidecarFile(directory + "/" + name);
 
       if (info.has_value() && (timeStepCount == 0 || info->offsetsPpm.size() == timeStepCount))
       {
@@ -327,6 +389,18 @@ namespace mitk
       return std::nullopt;
     }
 
+    // Protocol files with different offsets are alternatives; the user has to choose.
+    for (const auto& candidate : candidates)
+    {
+      if (candidate.info.offsetsPpm != candidates.front().info.offsetsPpm)
+      {
+        MITK_WARN << "Several CEST protocol files with different offsets were found next to " << imageFile
+                  << ". None is used automatically, select one in the reader options.";
+        return std::nullopt;
+      }
+    }
+
+    // The files describe the same acquisition and complement each other.
     std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) {
       if (a.matchesImageName != b.matchesImageName)
       {
@@ -346,13 +420,6 @@ namespace mitk
     {
       const auto& other = candidates[i].info;
 
-      if (other.offsetsPpm != result.offsetsPpm)
-      {
-        MITK_WARN << "The offsets of the CEST protocol file " << candidates[i].fileName << " differ from "
-                  << candidates.front().fileName << ". The latter is used.";
-        continue;
-      }
-
       FillIfMissing(result.b1Microtesla, other.b1Microtesla);
       FillIfMissing(result.pulseDurationMs, other.pulseDurationMs);
       FillIfMissing(result.dutyCyclePercent, other.dutyCyclePercent);
@@ -360,6 +427,44 @@ namespace mitk
     }
 
     return result;
+  }
+
+  std::string CESTProtocolFileOptionName()
+  {
+    return "Protocol file (optional).file";
+  }
+
+  std::string CESTProtocolFileOptionFilter()
+  {
+    return "CEST protocol files (*.ini *.log *.seq);;All files (*)";
+  }
+
+  std::optional<CESTSidecarInfo> ResolveCESTSidecar(const std::string& imageFile, std::size_t timeStepCount, const std::string& chosenFile)
+  {
+    if (chosenFile.empty())
+    {
+      return ReadCESTSidecar(imageFile, timeStepCount);
+    }
+
+    auto sidecar = ReadCESTSidecarFile(chosenFile);
+    if (!sidecar.has_value() || sidecar->offsetsPpm.size() != timeStepCount)
+    {
+      mitkThrow() << "Cannot load CEST data. The protocol file " << chosenFile << " does not contain " << timeStepCount
+                  << " offsets.";
+    }
+    return sidecar;
+  }
+
+  std::vector<double> SequentialCESTOffsets(std::size_t count)
+  {
+    MITK_WARN << "No CEST offsets found. The data is loaded in its given order with the offsets 1 to " << count << ".";
+
+    std::vector<double> offsets;
+    for (std::size_t i = 1; i <= count; ++i)
+    {
+      offsets.push_back(static_cast<double>(i));
+    }
+    return offsets;
   }
 
   void ApplyCESTSidecarParameters(Image* image, const CESTSidecarInfo& info)

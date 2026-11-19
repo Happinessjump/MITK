@@ -76,6 +76,11 @@ namespace mitk
      * in a corresponding \c std::vector<std::string> value. The same option key
      * without the "enum" segment is considered to hold the current selection from
      * the enumeration.
+     *
+     * If the last segment is equal to the string "file" and the value is a
+     * \c std::string, the option holds a file path and the user interface offers
+     * a browse button. An additional \c std::string option with the key
+     * extended by the segment "filter" provides the file dialog filter.
      */
     typedef std::map<std::string, us::Any> Options;
 

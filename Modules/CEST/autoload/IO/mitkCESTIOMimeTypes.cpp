@@ -190,19 +190,9 @@ namespace mitk
       return canRead;
     }
 
-    const auto info = ReadCESTEnhancedMRFileInfo(path);
-    if (!info.isEnhancedMR)
-    {
-      return false;
-    }
-
-    if (ParseCESTOffsetPpm(info.imageComment).has_value())
-    {
-      return true;
-    }
-
-    return itksys::SystemTools::FileExists(itksys::SystemTools::GetFilenamePath(path) + "/LIST.txt") ||
-           ReadCESTSidecar(path, 0).has_value();
+    // Without offsets in the comment, a LIST.txt or a protocol file the reader
+    // still applies: the user can pick a protocol file or load the plain order.
+    return ReadCESTEnhancedMRFileInfo(path).isEnhancedMR;
   }
 
   MitkCESTIOMimeTypes::MitkCESTEnhancedMRMimeType* MitkCESTIOMimeTypes::MitkCESTEnhancedMRMimeType::Clone() const

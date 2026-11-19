@@ -137,6 +137,11 @@ namespace
       offsets = sidecar->offsetsPpm;
     }
 
+    if (offsets.empty())
+    {
+      offsets = mitk::SequentialCESTOffsets(files.size());
+    }
+
     if (offsets.size() != files.size())
     {
       mitkThrow() << "Cannot load CEST series. Found " << files.size() << " files but " << offsets.size()
@@ -214,6 +219,8 @@ namespace mitk
   {
     Options options;
     options[OPTION_NAME_NORMALIZE] = std::vector<std::string>{ OPTION_VALUE_AUTOMATIC, OPTION_VALUE_NO };
+    options[CESTProtocolFileOptionName()] = std::string();
+    options[CESTProtocolFileOptionName() + ".filter"] = CESTProtocolFileOptionFilter();
     this->SetDefaultOptions(options);
 
     this->RegisterService();
@@ -232,7 +239,12 @@ namespace mitk
     }
 
     const auto files = CollectSeriesFiles(inputFile, inputInfo);
-    const auto sidecar = ReadCESTSidecar(inputFile, files.size());
+    const Options options = this->GetOptions();
+
+    const auto protocolFileOption = options.find(CESTProtocolFileOptionName());
+    const std::string protocolFile = protocolFileOption != options.end() ? protocolFileOption->second.ToString() : std::string();
+    const auto sidecar = ResolveCESTSidecar(inputFile, files.size(), protocolFile);
+
     const auto offsets = DetermineOffsets(files, itksys::SystemTools::GetFilenamePath(inputFile), sidecar);
 
     Image::Pointer image = Image::New();
@@ -283,7 +295,6 @@ namespace mitk
       MITK_WARN << "Neither the Transmit Frequency nor a CEST protocol file provides the frequency. The CEST frequency property is not set.";
     }
 
-    const Options options = this->GetOptions();
     const std::string normalization = options.find(OPTION_NAME_NORMALIZE)->second.ToString();
 
     if (normalization != OPTION_VALUE_NO && IsNotNormalizedCESTImage(image))

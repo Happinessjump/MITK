@@ -12,7 +12,10 @@ found in the LICENSE file.
 
 #include <QmitkFileReaderWriterOptionsWidget.h>
 
+#include <QFileDialog>
 #include <QFormLayout>
+#include <QHBoxLayout>
+#include <QPushButton>
 
 #include <limits>
 
@@ -108,9 +111,33 @@ QmitkFileReaderWriterOptionsWidget::QmitkFileReaderWriterOptionsWidget(const Opt
     }
   }
 
+  const auto endsWith = [](const std::string &text, const std::string &suffix) {
+    return text.size() > suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+  };
+
+  // "<label>.file.filter" only parameterizes the file dialog of "<label>.file"
+  std::map<std::string, QString> fileFilters;
+  for (const auto &option : options)
+  {
+    if (endsWith(option.first, ".file.filter"))
+    {
+      const std::string fileName = option.first.substr(0, option.first.size() - 7);
+      fileFilters[fileName] = QString::fromStdString(option.second.ToString());
+      filteredOptions.erase(option.first);
+    }
+  }
+
   auto formLayout = new QFormLayout();
   for (Options::const_iterator iter = filteredOptions.begin(), iterEnd = filteredOptions.end(); iter != iterEnd; ++iter)
   {
+    if (iter->second.Type() == typeid(std::string) && endsWith(iter->first, ".file"))
+    {
+      const std::string label = iter->first.substr(0, iter->first.size() - 5);
+      formLayout->addRow(GetAnyWidgetLabel(label),
+                         new QmitkAnyFilePathWidget(iter->first, iter->second, fileFilters[iter->first]));
+      continue;
+    }
+
     formLayout->addRow(GetAnyWidgetLabel(iter->first),
                        GetAnyWidget(iter->first, iter->second, optionToDefaultValue[iter->first]));
   }
@@ -144,6 +171,38 @@ QmitkAnyStringWidget::QmitkAnyStringWidget(const std::string &name, const us::An
 us::Any QmitkAnyStringWidget::GetAny() const
 {
   return us::Any(this->text().toStdString());
+}
+
+QmitkAnyFilePathWidget::QmitkAnyFilePathWidget(const std::string &name,
+                                               const us::Any &any,
+                                               const QString &filter,
+                                               QWidget *parent)
+  : QWidget(parent), QmitkAnyAdapter(name), m_PathEdit(new QLineEdit(this)), m_Filter(filter)
+{
+  m_PathEdit->setText(QString::fromStdString(any.ToString()));
+
+  auto browseButton = new QPushButton(QStringLiteral("..."), this);
+  connect(browseButton, &QPushButton::clicked, this, &QmitkAnyFilePathWidget::Browse);
+
+  auto layout = new QHBoxLayout(this);
+  layout->setContentsMargins(0, 0, 0, 0);
+  layout->addWidget(m_PathEdit);
+  layout->addWidget(browseButton);
+}
+
+us::Any QmitkAnyFilePathWidget::GetAny() const
+{
+  return us::Any(m_PathEdit->text().toStdString());
+}
+
+void QmitkAnyFilePathWidget::Browse()
+{
+  const QString path = QFileDialog::getOpenFileName(this, QString(), m_PathEdit->text(), m_Filter);
+
+  if (!path.isEmpty())
+  {
+    m_PathEdit->setText(path);
+  }
 }
 
 QmitkAnyBoolWidget::QmitkAnyBoolWidget(const std::string &name, const us::Any &any, QWidget *parent)
