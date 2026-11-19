@@ -41,6 +41,28 @@ if(MITK_USE_OpenMP)
   set(CMAKE_INSTALL_OPENMP_LIBRARIES ON)
 endif()
 
+if(WIN32 AND MITK_USE_onnxruntime)
+  # The prebuilt onnxruntime.dll is compiled with a recent MSVC and crashes at
+  # the first std::mutex use when it runs against the msvcp140.dll of an older
+  # toolset (before 14.40), which the toolset's redistributable would put into
+  # the package. Package the runtime of the build machine instead.
+  set(_mitk_runtime_dlls
+    msvcp140 msvcp140_1 msvcp140_2 msvcp140_atomic_wait msvcp140_codecvt_ids
+    vcruntime140 vcruntime140_1 concrt140)
+  if(MITK_USE_OpenMP)
+    list(APPEND _mitk_runtime_dlls vcomp140)
+  endif()
+
+  set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP ON)
+  foreach(_dll ${_mitk_runtime_dlls})
+    set(_path "$ENV{SystemRoot}/System32/${_dll}.dll")
+    if(NOT EXISTS "${_path}")
+      message(FATAL_ERROR "Cannot package ${_path}: file does not exist.")
+    endif()
+    install(PROGRAMS "${_path}" DESTINATION bin)
+  endforeach()
+endif()
+
 # include required mfc libraries
 include(InstallRequiredSystemLibraries)
 
