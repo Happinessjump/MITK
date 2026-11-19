@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>QmitkCESTOnnxViewControls</class>
+ <widget class="QWidget" name="QmitkCESTOnnxViewControls">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>360</width>
+    <height>220</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>QmitkCESTOnnxViewControls</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QFormLayout" name="formLayout">
+     <item row="0" column="0">
+      <widget class="QLabel" name="labelImage">
+       <property name="text">
+        <string>4D CEST image:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QmitkDataStorageComboBoxWithSelectNone" name="comboCESTImage" native="true"/>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="labelModel">
+       <property name="text">
+        <string>ONNX model:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <layout class="QHBoxLayout" name="layoutModel">
+       <item>
+        <widget class="QLineEdit" name="lineModel"/>
+       </item>
+       <item>
+        <widget class="QToolButton" name="btnBrowseModel">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="labelIni">
+       <property name="text">
+        <string>Settings (.ini):</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <layout class="QHBoxLayout" name="layoutIni">
+       <item>
+        <widget class="QLineEdit" name="lineIni"/>
+       </item>
+       <item>
+        <widget class="QToolButton" name="btnBrowseIni">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="checkDicomRange">
+     <property name="toolTip">
+      <string>Scale the maps to the DICOM range (value * Scale + bias, clipped to 0..4095) as defined in the .ini file. Otherwise the maps contain the raw network values.</string>
+     </property>
+     <property name="text">
+      <string>Output in DICOM range</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btnRun">
+     <property name="text">
+      <string>Calculate parameter maps</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>QmitkDataStorageComboBoxWithSelectNone</class>
+   <extends>QWidget</extends>
+   <header location="global">QmitkDataStorageComboBoxWithSelectNone.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

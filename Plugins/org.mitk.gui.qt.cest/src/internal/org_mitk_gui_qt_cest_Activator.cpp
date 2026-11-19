@@ -13,11 +13,13 @@ found in the LICENSE file.
 #include "org_mitk_gui_qt_cest_Activator.h"
 #include "QmitkCESTStatisticsView.h"
 #include "QmitkCESTNormalizeView.h"
+#include "QmitkCESTOnnxView.h"
 
 void mitk::org_mitk_gui_qt_cest_Activator::start(ctkPluginContext* context)
 {
   BERRY_REGISTER_EXTENSION_CLASS(QmitkCESTStatisticsView, context)
   BERRY_REGISTER_EXTENSION_CLASS(QmitkCESTNormalizeView, context)
+  BERRY_REGISTER_EXTENSION_CLASS(QmitkCESTOnnxView, context)
 }
 
 void mitk::org_mitk_gui_qt_cest_Activator::stop(ctkPluginContext*)

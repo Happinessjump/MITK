@@ -15,4 +15,11 @@
           icon="resources/cest_normalize.svg"
 		  category="CEST"/>
   </extension>
+  <extension point="org.blueberry.ui.views">
+    <view id="org.mitk.views.cest.onnx"
+          name="CEST ONNX"
+          class="QmitkCESTOnnxView"
+          icon="resources/icon.svg"
+          category="CEST"/>
+  </extension>
 </plugin>

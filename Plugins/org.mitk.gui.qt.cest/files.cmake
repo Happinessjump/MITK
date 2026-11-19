@@ -5,17 +5,20 @@ set(INTERNAL_CPP_FILES
   org_mitk_gui_qt_cest_Activator.cpp
   QmitkCESTStatisticsView.cpp
   QmitkCESTNormalizeView.cpp
+  QmitkCESTOnnxView.cpp
 )
 
 set(UI_FILES
   src/internal/QmitkCESTStatisticsViewControls.ui
   src/internal/QmitkCESTNormalizeViewControls.ui
+  src/internal/QmitkCESTOnnxViewControls.ui
 )
 
 set(MOC_H_FILES
   src/internal/org_mitk_gui_qt_cest_Activator.h
   src/internal/QmitkCESTStatisticsView.h
   src/internal/QmitkCESTNormalizeView.h
+  src/internal/QmitkCESTOnnxView.h
 )
 
 # list of resource files which can be used by the plug-in

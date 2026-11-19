@@ -48,6 +48,7 @@ set(MITK_MODULES
   XNAT
   RenderWindowManagerUI
   CEST
+  CESTOnnx
   BasicImageProcessing
   ModelFit
   ModelFitUI
